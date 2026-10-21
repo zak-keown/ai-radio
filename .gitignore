@@ -1,0 +1,16 @@
+node_modules/
+.ai-radio/
+coverage/
+.DS_Store
+
+# Machine-specific agent configuration and credentials
+.mcp.json
+.claude/
+.codex/
+.env
+.env.*
+!.env.example
+
+# Generated package archives and logs
+*.tgz
+*.log

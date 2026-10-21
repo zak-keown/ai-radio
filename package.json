@@ -1,0 +1,46 @@
+{
+  "name": "ai-radio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local, durable messaging between Codex and Claude Code",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "bin": {
+    "ai-radio": "bin/ai-radio.js"
+  },
+  "scripts": {
+    "start": "node bin/ai-radio.js",
+    "test": "node --test --test-timeout=20000 test/*.test.js",
+    "check": "node --check bin/ai-radio.js && node --check src/store.js && node --check src/mcp.js && node --check src/codex.js && node --check src/rpc.js && node --check src/install.js && node --check src/push.js && node --check bin/ai-radio-shell.js && node --check scripts/install-shell.js && node --check src/shell.js",
+    "setup": "node bin/ai-radio.js install",
+    "doctor": "node bin/ai-radio.js doctor",
+    "codex": "node bin/ai-radio.js run codex",
+    "claude": "node bin/ai-radio.js run claude",
+    "setup:shell": "node scripts/install-shell.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zak-keown/ai-radio.git"
+  },
+  "homepage": "https://github.com/zak-keown/ai-radio#readme",
+  "bugs": {
+    "url": "https://github.com/zak-keown/ai-radio/issues"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "scripts/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "eval/"
+  ],
+  "license": "MIT"
+}

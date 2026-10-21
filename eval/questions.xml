@@ -1,0 +1,12 @@
+<evaluation>
+  <qa_pair><question>Using the seeded fixture, inspect the parser proposal and its accepted corrections. What final maximum frame size, in bytes, should the implementation enforce? Return the integer only.</question><answer>32768</answer></qa_pair>
+  <qa_pair><question>Compare the original parser proposal, compatibility findings, and the sender's acceptance in conversation history. Which wire version won? Return the integer only.</question><answer>4</answer></qa_pair>
+  <qa_pair><question>Find the discussion prompted by a seasonal clock transition, then determine which timezone is for persistence rather than presentation. Return its exact name.</question><answer>UTC</answer></qa_pair>
+  <qa_pair><question>Compare the time storage and presentation decision, then identify the timezone that must not be persisted as the storage zone. Return its IANA identifier.</question><answer>America/Denver</answer></qa_pair>
+  <qa_pair><question>Inspect the retry incident and its resolution, cross-check the registered peers, and return the provider of the peer who reported the issue.</question><answer>claude</answer></qa_pair>
+  <qa_pair><question>Find the rollout conversation and the compatibility discussion. What canary port was ultimately accepted for the release, after the collision report? Return the integer only.</question><answer>4200</answer></qa_pair>
+  <qa_pair><question>Find the release name in the canary discussion, then check the later rollback report. What exact image digest should be retained for that release?</question><answer>sha256:feedcafe</answer></qa_pair>
+  <qa_pair><question>Which registered peer reported the retry duplication incident and later provided the rollback image? Return the peer name, not its provider.</question><answer>reviewer</answer></qa_pair>
+  <qa_pair><question>Compare the original deployment proposal with its correction and acceptance. What is the release name associated with the accepted port? Return the name only.</question><answer>Vega</answer></qa_pair>
+  <qa_pair><question>Inspect the delivery and acknowledgment fields in the operator recovery drill and compare them with the compatibility correction's receipt. Was the recovery drill processed merely because it was transport-delivered? Return True or False.</question><answer>False</answer></qa_pair>
+</evaluation>
