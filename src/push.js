@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
+import { failureRetryDelay } from './recovery.js';
 
 // Watcher gives fast local delivery; timer recovers missed filesystem events.
 // A lease prevents two live consumers from pushing the same mailbox.
 export function startPush(store, agent, deliver, onError = console.error, { retryAfterMs = Infinity, durableOnce = false } = {}) {
   const owner = randomUUID();
   const sent = new Map();
+  const failedUntil = new Map((store.db?.prepare(`SELECT message_id,next_retry_at FROM delivery_status
+    WHERE agent=? AND outcome='ambiguous' AND next_retry_at>?`).all(agent, new Date().toISOString()) ?? [])
+    .map(row => [row.message_id, Date.parse(row.next_retry_at)]));
   let closed = false;
   let running = false;
   let blocked = false;
@@ -21,24 +25,35 @@ export function startPush(store, agent, deliver, onError = console.error, { retr
         return;
       }
       blocked = false;
-      let after = scanAfter;
-      // Bound each pass so other traffic and shutdown remain responsive.
-      for (let page = 0; page < 10 && !closed; page++) {
-        if (store.presence(agent).mode !== 'active') break;
-        const result = store.inbox(agent, { after, limit: 100 });
-        const pending = result.messages.filter(m => (!durableOnce || !store.attempted(agent, m.id)) && (!sent.has(m.id) || Date.now() - sent.get(m.id) >= retryAfterMs));
+      // One bounded packet per pass; retain a cursor so an unacknowledged
+      // first page cannot starve newer requests in a large mailbox.
+      if (!closed && store.presence(agent).mode === 'active') {
+        const result = store.inbox(agent, { after: scanAfter, limit: 100 });
+        const pending = result.messages.filter(m => (!durableOnce || !store.attempted(agent, m.id)) && Date.now() >= (failedUntil.get(m.id) ?? 0) && (!sent.has(m.id) || Date.now() - sent.get(m.id) >= retryAfterMs));
         if (pending.length) {
+          const ids = pending.map(m => m.id);
+          const policy = durableOnce ? 'durable_once' : Number.isFinite(retryAfterMs) ? 'until_acknowledged' : 'session_once';
+          const recovery = { policy, retryAfterMs };
           // Queue transports can accept a message and then time out. Persist before sending; ambiguous attempts
           // remain recoverable in inbox, but never enqueue again automatically, even after a bridge restart.
-          if (durableOnce) store.markAttempted(agent, pending.map(m => m.id));
-          await deliver(pending);
+          if (durableOnce && !store.recordAttempt) store.markAttempted(agent, ids);
+          store.recordAttempt?.(agent, ids, recovery);
+          try { await deliver(pending); }
+          catch (error) {
+            const retryAt = Date.now() + failureRetryDelay(retryAfterMs);
+            for (const id of ids) failedUntil.set(id, retryAt);
+            store.recordFailure?.(agent, ids, error, recovery);
+            throw error;
+          }
           if (closed) return;
-          store.delivered(pending.map(m => m.id));
-          for (const message of pending) sent.set(message.id, Date.now());
+          store.delivered(ids);
+          store.recordDelivery?.(agent, ids, recovery);
+          for (const message of pending) {
+            failedUntil.delete(message.id);
+            sent.set(message.id, Date.now());
+          }
         }
-        if (!result.has_more) { scanAfter = 0; break; }
-        after = result.next_after;
-        scanAfter = after;
+        scanAfter = result.has_more ? result.next_after : 0;
       }
     } catch (error) { if (!closed) onError(error); }
     finally { running = false; }

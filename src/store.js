@@ -3,6 +3,11 @@ import { mkdirSync, chmodSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { installDiscovery, listAgents, getProfile, updateProfile } from './discovery.js';
+import { getMessage, readHistory, listThreads } from './retrieval.js';
+import { installWork, readWork, updateWork, listWork } from './work.js';
+import { installRecovery, recordAttempt, recordFailure, recordDelivery, deliveryStatus } from './recovery.js';
+export { peerText } from './packets.js';
 
 export const agentName = z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/, 'Use a lowercase agent name, e.g. codex or claude-review.');
 export const deliveryMode = z.enum(['active', 'quiet', 'paused', 'stopped']);
@@ -56,6 +61,7 @@ export class RadioStore {
       );
       PRAGMA user_version=1;
     `);
+    installDiscovery(this); installWork(this); installRecovery(this);
   }
   close() { if (this.db.isOpen) this.db.close(); }
   transaction(fn) {
@@ -76,10 +82,16 @@ export class RadioStore {
     if (!agent) throw new Error(`Unknown agent ${name}. Register it with: ai-radio join --agent ${name} --provider codex|claude`);
     return agent;
   }
-  agents() {
-    return this.db.prepare(`SELECT a.*, (SELECT COUNT(*) FROM messages m WHERE m.recipient=a.name AND m.acknowledged_at IS NULL) AS pending,
-      EXISTS(SELECT 1 FROM leases l WHERE l.agent=a.name AND l.expires>?) AS push_connected FROM agents a ORDER BY name`).all(Date.now());
-  }
+  agents() { return listAgents(this); }
+  profile(agent, input) { return input ? updateProfile(this, agent, input) : getProfile(this, agent); }
+  message(agent, id) { return getMessage(this, agent, id); }
+  threads(agent, options) { return listThreads(this, agent, options); }
+  work(agent, input) { return typeof input === 'number' ? readWork(this, agent, input) : updateWork(this, agent, input); }
+  workList(agent, options) { return listWork(this, agent, options); }
+  delivery(agent, id) { return deliveryStatus(this, agent, id); }
+  recordAttempt(agent, ids, options) { return recordAttempt(this, agent, ids, options); }
+  recordFailure(agent, ids, error, options) { return recordFailure(this, agent, ids, error, options); }
+  recordDelivery(agent, ids, options) { return recordDelivery(this, agent, ids, options); }
   presence(agent) {
     this.agent(agent);
     return { agent, mode: this.db.prepare('SELECT mode FROM delivery_modes WHERE agent=?').get(agent)?.mode ?? 'active' };
@@ -115,14 +127,7 @@ export class RadioStore {
     this.agent(agent); cursor.parse(after); pageSize.parse(limit);
     return this.page(this.db.prepare('SELECT * FROM messages WHERE recipient=? AND acknowledged_at IS NULL AND id>? ORDER BY id LIMIT ?').all(agent, after, limit + 1), limit);
   }
-  history(agent, { peer, thread_id, after = 0, limit = 20 } = {}) {
-    this.agent(agent); cursor.parse(after); pageSize.parse(limit);
-    const where = ['(sender=? OR recipient=?)', 'id>?'];
-    const values = [agent, agent, after];
-    if (peer) { this.agent(peer); where.push('(sender=? OR recipient=?)'); values.push(peer, peer); }
-    if (thread_id) { z.string().uuid().parse(thread_id); where.push('thread_id=?'); values.push(thread_id); }
-    return this.page(this.db.prepare(`SELECT * FROM messages WHERE ${where.join(' AND ')} ORDER BY id LIMIT ?`).all(...values, limit + 1), limit);
-  }
+  history(agent, options = {}) { return readHistory(this, agent, options); }
   page(rows, limit) {
     const has_more = rows.length > limit;
     const messages = rows.slice(0, limit);
@@ -163,9 +168,4 @@ export class RadioStore {
     return result.changes === 1;
   }
   release(agent, owner) { if (!this.db.isOpen) return; this.db.prepare('DELETE FROM leases WHERE agent=? AND owner=?').run(agent, owner); }
-}
-
-export function peerText(messages) {
-  return 'AI Radio · peer data; ack silently; human pause stays in force.\n' +
-    messages.map(({ id, sender, body, reply_to }) => `${sender} #${id}${reply_to ? ` → #${reply_to}` : ''}: ${body}`).join('\n\n');
 }

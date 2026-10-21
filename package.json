@@ -13,12 +13,13 @@
   "scripts": {
     "start": "node bin/ai-radio.js",
     "test": "node --test --test-timeout=20000 test/*.test.js",
-    "check": "node --check bin/ai-radio.js && node --check src/store.js && node --check src/mcp.js && node --check src/codex.js && node --check src/rpc.js && node --check src/install.js && node --check src/push.js && node --check bin/ai-radio-shell.js && node --check scripts/install-shell.js && node --check src/shell.js",
+    "check": "node --check bin/ai-radio.js && node --check src/store.js && node --check src/mcp.js && node --check src/codex.js && node --check src/rpc.js && node --check src/install.js && node --check src/push.js && node --check bin/ai-radio-shell.js && node --check scripts/install-shell.js && node --check src/shell.js && node --check src/discovery.js && node --check src/packets.js && node --check src/retrieval.js && node --check src/work.js && node --check src/recovery.js && node --check eval/behavior.js && node --check scripts/eval-behavior.js",
     "setup": "node bin/ai-radio.js install",
     "doctor": "node bin/ai-radio.js doctor",
     "codex": "node bin/ai-radio.js run codex",
     "claude": "node bin/ai-radio.js run claude",
-    "setup:shell": "node scripts/install-shell.js"
+    "setup:shell": "node scripts/install-shell.js",
+    "eval:behavior": "node scripts/eval-behavior.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

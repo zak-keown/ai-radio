@@ -7,6 +7,7 @@ import { peerText } from './store.js';
 export async function runCodex(store, agent, cli, { thread, sandbox = 'read-only', executable = 'codex', model, profile, configOverrides = [], prompt, onReady } = {}) {
   store.register(agent, 'codex');
   if (!['read-only', 'workspace-write'].includes(sandbox)) throw new Error('Use --sandbox read-only or workspace-write.');
+  store.profile(agent, { sandbox });
   const config = { 'mcp_servers.ai-radio': { command: process.execPath, args: [cli, 'serve', '--project', store.project, '--agent', agent, '--provider', 'codex'] } };
   const entry = config['mcp_servers.ai-radio'];
   const child = spawn(executable, [...(profile ? ['--profile', profile] : []), 'app-server', ...configOverrides.flatMap(value => ['-c', value]), '-c', `mcp_servers.ai-radio.command=${JSON.stringify(entry.command)}`, '-c', `mcp_servers.ai-radio.args=${JSON.stringify(entry.args)}`], { cwd: store.project, stdio: ['pipe', 'pipe', 'inherit'] });

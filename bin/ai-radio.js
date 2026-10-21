@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { install, doctor, runClaude } from '../src/install.js';
 import { RadioStore } from '../src/store.js';
+import { errorResult } from '../src/recovery.js';
 
 const help = `ai-radio — local messaging for Codex and Claude Code (Node 24+)
 
@@ -12,13 +13,21 @@ const help = `ai-radio — local messaging for Codex and Claude Code (Node 24+)
   doctor                       Check Node, CLIs, and project installation
   init                         Create local bus and default codex/claude peers
   join --agent NAME --provider codex|claude
-  agents                       List peers and push connections
+  agents                       List peer profiles, delivery modes and lease freshness
+  profile --agent NAME [--role TEXT] [--capabilities a,b] [--task TEXT] [--sandbox MODE]
   presence --agent NAME [--mode active|quiet|paused|stopped]
                                Read or persist automatic delivery state
   send --from NAME --to NAME --body TEXT [--reply-to ID] [--key KEY]
   inbox --agent NAME [--after ID] [--limit N]
   ack --agent NAME --ids 1,2    Acknowledge processed messages
+  message --agent NAME --id ID  Fetch one full message
   history --agent NAME [--peer NAME] [--thread UUID] [--after ID] [--limit N]
+          [--order asc|desc] [--before ID] [--query TEXT]
+  threads --agent NAME [--peer NAME] [--before ID] [--limit N]
+  work --agent NAME --id ID [--state STATE --key KEY] [--detail TEXT] [--result-ref REF]
+                               States: accepted,in_progress,blocked,completed,declined
+  work-list --agent NAME [--state STATE] [--after ID] [--limit N]
+  delivery --agent NAME --id ID Inspect transport attempts and recovery advice
   serve --agent NAME --provider codex|claude [--channel]
   run claude [--agent NAME]     Launch native Claude Code with channel push
   run codex [--agent NAME] [--thread ID] [--sandbox read-only|workspace-write]
@@ -29,7 +38,7 @@ Claude push: use config's MCP entry, then launch with the development-channel fl
 Codex push: run codex starts a dedicated local app-server thread; it does not
 attach to an arbitrary existing terminal or desktop session.
 `;
-const options = Object.fromEntries(['project','agent','provider','from','to','body','reply-to','key','after','limit','ids','peer','thread','sandbox','mode'].map(key => [key, { type: 'string' }]));
+const options = Object.fromEntries(['project','agent','provider','from','to','body','reply-to','key','after','limit','ids','peer','thread','sandbox','mode','id','state','detail','result-ref','role','capabilities','task','order','before','query'].map(key => [key, { type: 'string' }]));
 options.help = { type: 'boolean', short: 'h' };
 options.channel = { type: 'boolean' };
 options['dry-run'] = { type: 'boolean' };
@@ -39,7 +48,7 @@ try {
   const [command, target] = positionals;
   if (v.help || !command) { console.log(help); }
   else {
-    if (!['install','uninstall','doctor','init','join','agents','presence','send','inbox','ack','history','serve','run','config'].includes(command)) throw new Error(`Unknown command ${command}. Run with --help.`);
+    if (!['install','uninstall','doctor','init','join','agents','presence','send','inbox','ack','history','profile','message','threads','work','work-list','delivery','serve','run','config'].includes(command)) throw new Error(`Unknown command ${command}. Run with --help.`);
     const required = key => { if (!v[key]) throw new Error(`Missing --${key}. Run with --help.`); return v[key]; };
     const cli = fileURLToPath(import.meta.url);
     const project = resolve(v.project ?? process.cwd());
@@ -66,10 +75,19 @@ try {
         case 'join': print(store.register(required('agent'), required('provider'))); break;
         case 'presence': print(v.mode ? store.setPresence(required('agent'), v.mode) : store.presence(required('agent'))); break;
         case 'agents': print({ agents: store.agents() }); break;
-        case 'send': print({ message: store.send(required('from'), { to: required('to'), body: required('body'), ...(v['reply-to'] ? { reply_to: Number(v['reply-to']) } : {}), ...(v.key ? { key: v.key } : {}) }) }); break;
+        case 'send': print({ message: store.send(required('from'), { to: required('to'), body: required('body'), ...(v['reply-to'] ? { reply_to: Number(v['reply-to']) } : {}), ...(v.key ? { key: v.key } : {}) }), recipient: store.agents().find(peer => peer.name === v.to) }); break;
         case 'inbox': print(store.inbox(required('agent'), { after: Number(v.after ?? 0), limit: Number(v.limit ?? 20) })); break;
         case 'ack': print(store.acknowledge(required('agent'), required('ids').split(',').map(Number))); break;
-        case 'history': print(store.history(required('agent'), { peer: v.peer, thread_id: v.thread, after: Number(v.after ?? 0), limit: Number(v.limit ?? 20) })); break;
+        case 'profile': {
+          const profile = { ...(v.role !== undefined ? { role: v.role || null } : {}), ...(v.capabilities !== undefined ? { capabilities: v.capabilities ? v.capabilities.split(',') : [] } : {}), ...(v.task !== undefined ? { current_task: v.task || null } : {}), ...(v.sandbox ? { sandbox: v.sandbox } : {}) };
+          print(store.profile(required('agent'), Object.keys(profile).length ? profile : undefined)); break;
+        }
+        case 'message': print({ message: store.message(required('agent'), Number(required('id'))), ...store.work(required('agent'), Number(v.id)) }); break;
+        case 'threads': print(store.threads(required('agent'), { peer: v.peer, before: v.before === undefined ? undefined : Number(v.before), limit: Number(v.limit ?? 20) })); break;
+        case 'work': print(store.work(required('agent'), v.state ? { id: Number(required('id')), state: v.state, key: required('key'), ...(v.detail !== undefined ? { detail: v.detail } : {}), ...(v['result-ref'] !== undefined ? { result_ref: v['result-ref'] } : {}) } : Number(required('id')))); break;
+        case 'work-list': print(store.workList(required('agent'), { state: v.state, after: Number(v.after ?? 0), limit: Number(v.limit ?? 20) })); break;
+        case 'delivery': print(store.delivery(required('agent'), Number(required('id')))); break;
+        case 'history': print(store.history(required('agent'), { peer: v.peer, thread_id: v.thread, after: Number(v.after ?? 0), before: v.before === undefined ? undefined : Number(v.before), order: v.order ?? 'asc', query: v.query, limit: Number(v.limit ?? 20) })); break;
         case 'serve': {
           const { serve } = await import('../src/mcp.js');
           await serve(store, required('agent'), required('provider'), v.channel ?? false);
@@ -89,6 +107,6 @@ try {
   }
 } catch (error) {
   try { store?.close(); } catch {}
-  console.error(`[ai-radio] ${error.message}`);
+  console.error(JSON.stringify(errorResult(error)));
   process.exitCode = 1;
 }
