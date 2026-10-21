@@ -13,20 +13,16 @@ test('Claude wrappers preserve arguments and alternate profile executable', () =
   assert.equal(shellPlan('claude',['auth','status']).native,true);
   assert.equal(shellPlan('claude-alt',['--version']).native,true);
 });
-test('Codex shell routing supports model, profile, directory, config and initial prompt', () => {
-  const plan = shellPlan('codex',['-m','test-model','-p','personal','-C','subdir','-c','model_reasoning_effort="high"','-s','workspace-write','do this'],'/tmp/project');
-  assert.equal(plan.model,'test-model'); assert.equal(plan.profile,'personal');
-  assert.equal(plan.project,'/tmp/project/subdir');
-  assert.deepEqual(plan.configOverrides,['model_reasoning_effort="high"']);
-  assert.equal(plan.prompt,'do this'); assert.equal(plan.sandbox,'workspace-write');
-  assert.equal(shellPlan('codex',['mcp','list']).native,true);
-  assert.equal(shellPlan('codex',['resume','some-thread']).native,true);
-  assert.throws(() => shellPlan('codex',['--unsupported-option']));
+test('Codex remains the native CLI with every flag and session command preserved', () => {
+  for (const args of [[], ['--worktree'], ['--unknown-native-flag'], ['resume','one'], ['fork','two'], ['-C','subdir','a prompt']]) {
+    assert.deepEqual(shellPlan('codex',args,'/tmp/project'), { provider:'codex', native:true, args });
+  }
 });
 test('shell installation preserves unrelated config, handles quoted paths and removes its block', () => {
   const original='export SOMETHING=1\n';
   const block=shellBlock('/path/node',"/path/it's a folder/launcher.js");
   assert.match(block,/function claude-alt\(\)/);
+  assert.doesNotMatch(block,/function codex\(\)/);
   assert.ok(block.includes("'\\''"));
   const installed=updateShell(original,block);
   assert.ok(installed.startsWith(original));

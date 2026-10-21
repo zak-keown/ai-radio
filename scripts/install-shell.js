@@ -9,7 +9,7 @@ const end = '# <<< AI Radio shell wrappers <<<';
 const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
 export function shellBlock(node, launcher) {
   return `${begin}\n# Native CLI escape hatch: command codex / command claude / command claude-alt\n` +
-    ['codex','claude','claude-alt'].map(name => `function ${name}() { ${quote(node)} ${quote(launcher)} ${quote(name)} "$@"; }`).join('\n') + `\n${end}`;
+    ['claude','claude-alt'].map(name => `function ${name}() { ${quote(node)} ${quote(launcher)} ${quote(name)} "$@"; }`).join('\n') + `\n${end}`;
 }
 export function updateShell(text, block, remove = false) {
   const start = text.indexOf(begin);

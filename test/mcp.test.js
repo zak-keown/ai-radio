@@ -22,7 +22,10 @@ test('real stdio MCP: cross-provider send pushes channel event without inbox rea
   const codex = await connect(project, 'codex', 'codex'); t.after(() => codex.client.close());
   assert.ok(claude.client.getServerCapabilities().experimental['claude/channel']);
   const tools = await codex.client.listTools();
-  assert.equal(tools.tools.length, 6);
+  assert.equal(tools.tools.length, 7);
+  const paused = await call(codex.client, 'radio_presence', { mode: 'paused' });
+  assert.equal(paused.structuredContent.mode, 'paused');
+  assert.equal((await call(codex.client, 'radio_presence')).structuredContent.agent, 'codex');
   const identity = await call(codex.client, 'radio_identity');
   assert.equal(identity.structuredContent.agent, 'codex');
   const sent = await call(codex.client, 'radio_send', { to: 'claude', body: 'hello via MCP', key: 'hello' });

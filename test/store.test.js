@@ -67,3 +67,11 @@ test('push lease excludes another consumer, renews without constant writes, expi
   store.release('claude', 'a');
   assert.equal(store.lease('claude', 'a', 12000), false);
 });
+
+test('peer packets are compact and preserve ids without a verbose JSON envelope', async () => {
+  const { peerText } = await import('../src/store.js');
+  const packet=peerText([{id:12,sender:'claude',recipient:'codex',body:'Ready.',thread_id:'unused',reply_to:9}]);
+  assert.match(packet,/claude #12 → #9: Ready\./);
+  assert.match(packet,/ack silently/);
+  assert.ok(!packet.includes('thread_id') && !packet.includes('recipient'));
+});

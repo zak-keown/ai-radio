@@ -187,29 +187,20 @@ npm run setup:shell
 source ~/.zshrc
 ```
 
-This installs three managed zsh functions: `codex`, `claude`, and `claude-alt`.
-It backs up `.zshrc` under this checkout's `.ai-radio/backups/`, preserves its
-other contents, and is safe to rerun. New terminal tabs load the functions
-automatically. The original executables are untouched.
+This installs managed functions for `claude` and `claude-alt`. **It never replaces
+`codex`**. Native Codex startup, resume, fork, worktrees, approvals and multiple
+terminals keep their original behavior. Existing old Codex wrappers also now
+pass every argument directly to the native binary.
 
-Run the commands in the directory whose bus you want to use. All three default
-mailboxes are registered automatically there. The local state directory ignores
-its own contents in Git. You do not need to run project setup just to use the
-wrappers. `claude-alt` still invokes your existing `claude-alt` executable, so its
-alternate authentication profile is preserved; its mailbox is `claude-alt`.
+The installer backs up `.zshrc` and preserves unrelated shell settings. If an
+older Radio function is still loaded in a terminal, remove it with
+`unfunction codex 2>/dev/null`; new terminals already use native Codex.
 
-Claude's ordinary flags and prompt arguments pass through, including `--resume`,
-`--model`, and permission settings. Native administrative subcommands and help or
-version requests go directly to the original executable.
-
-The `codex` function uses AI Radio's **line-based app-server runner**, with push
-reception. It supports an initial prompt, `--model`/`-m`, `--profile`/`-p`,
-`--cd`/`-C`, `--config`/`-c`, `--sandbox`/`-s`, and `--thread`. It retains the
-runner's read-only default; add `-s workspace-write` for project edits. It does
-not provide the native Codex TUI, interactive approvals, image input, or every
-native startup flag. Unsupported options fail explicitly. Native subcommands
-such as `codex mcp`, `codex exec`, and `codex resume` bypass AI Radio. To resume a
-push-enabled runner thread, use `codex --thread THREAD_ID` instead.
+AI Radio's separate line-based Codex runner is opt-in:
+`node bin/ai-radio.js run codex --agent codex-review`. Use a unique Radio agent
+name for every simultaneously connected Radio session. The ordinary `codex`
+command never starts that runner. Claude arguments and alternate profiles remain
+preserved by their own wrappers.
 
 Bypass the functions whenever you want the original CLI:
 

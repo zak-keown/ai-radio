@@ -13,6 +13,8 @@ const help = `ai-radio — local messaging for Codex and Claude Code (Node 24+)
   init                         Create local bus and default codex/claude peers
   join --agent NAME --provider codex|claude
   agents                       List peers and push connections
+  presence --agent NAME [--mode active|quiet|paused|stopped]
+                               Read or persist automatic delivery state
   send --from NAME --to NAME --body TEXT [--reply-to ID] [--key KEY]
   inbox --agent NAME [--after ID] [--limit N]
   ack --agent NAME --ids 1,2    Acknowledge processed messages
@@ -27,7 +29,7 @@ Claude push: use config's MCP entry, then launch with the development-channel fl
 Codex push: run codex starts a dedicated local app-server thread; it does not
 attach to an arbitrary existing terminal or desktop session.
 `;
-const options = Object.fromEntries(['project','agent','provider','from','to','body','reply-to','key','after','limit','ids','peer','thread','sandbox'].map(key => [key, { type: 'string' }]));
+const options = Object.fromEntries(['project','agent','provider','from','to','body','reply-to','key','after','limit','ids','peer','thread','sandbox','mode'].map(key => [key, { type: 'string' }]));
 options.help = { type: 'boolean', short: 'h' };
 options.channel = { type: 'boolean' };
 options['dry-run'] = { type: 'boolean' };
@@ -37,7 +39,7 @@ try {
   const [command, target] = positionals;
   if (v.help || !command) { console.log(help); }
   else {
-    if (!['install','uninstall','doctor','init','join','agents','send','inbox','ack','history','serve','run','config'].includes(command)) throw new Error(`Unknown command ${command}. Run with --help.`);
+    if (!['install','uninstall','doctor','init','join','agents','presence','send','inbox','ack','history','serve','run','config'].includes(command)) throw new Error(`Unknown command ${command}. Run with --help.`);
     const required = key => { if (!v[key]) throw new Error(`Missing --${key}. Run with --help.`); return v[key]; };
     const cli = fileURLToPath(import.meta.url);
     const project = resolve(v.project ?? process.cwd());
@@ -62,6 +64,7 @@ try {
       switch (command) {
         case 'init': print({ project: store.project, agents: [store.register('codex','codex'), store.register('claude','claude')], database: store.path }); break;
         case 'join': print(store.register(required('agent'), required('provider'))); break;
+        case 'presence': print(v.mode ? store.setPresence(required('agent'), v.mode) : store.presence(required('agent'))); break;
         case 'agents': print({ agents: store.agents() }); break;
         case 'send': print({ message: store.send(required('from'), { to: required('to'), body: required('body'), ...(v['reply-to'] ? { reply_to: Number(v['reply-to']) } : {}), ...(v.key ? { key: v.key } : {}) }) }); break;
         case 'inbox': print(store.inbox(required('agent'), { after: Number(v.after ?? 0), limit: Number(v.limit ?? 20) })); break;

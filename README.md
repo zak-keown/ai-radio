@@ -135,3 +135,35 @@ This checkout is not published to npm.
 ## License
 
 [MIT](LICENSE), copyright 2026 Zak Keown.
+
+## Quiet, pause, and shutdown
+
+Ordinary `codex` stays the native CLI; shell setup never intercepts it. The
+line-based Radio runner is explicitly opt-in. Give simultaneous Radio sessions
+unique agent names.
+
+Set delivery state with `radio_presence` or the local CLI:
+
+```sh
+node bin/ai-radio.js presence --agent codex --mode paused
+node bin/ai-radio.js presence --agent codex --mode quiet
+node bin/ai-radio.js presence --agent codex --mode stopped
+```
+
+All three states retain pending messages without automatic delivery. They persist
+across restarts and do not expire. Only an explicit human resume permits changing
+back to `active`; a peer's message never resumes paused work. Inbox/history still
+work manually. “Shut up” means quiet delivery, not repeated announcements that an
+agent is being quiet.
+
+Messages use compact `sender #id: body` packets, batched by the push consumer.
+Agents acknowledge silently with `radio_ack`: no user-facing acknowledgment,
+no acknowledgment-only peer reply, and no repeated status without a useful
+change. Before shutdown, save a handoff, suppress delivery, stop owned work, and
+send at most one useful departure note.
+
+Queue adapters should use `startPush(..., { durableOnce: true })`. An attempted
+native queue delivery is persisted before calling the transport; an ambiguous
+failure is never resent automatically, even after restart. Such messages remain
+in the inbox for manual recovery. This trades automatic retry for avoiding a
+queue flood. Do not restart an old adapter without this option.
